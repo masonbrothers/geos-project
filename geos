@@ -15,6 +15,31 @@ load_project_file() {
         >&2 echo "For help run \"$script_name help\""
 		exit 1
     fi
+
+	if [[ -z $contract_name ]]; then
+        >&2 echo "The contract name is not defined!"
+		exit 1
+	fi
+
+	if [[ -z $eosio_header_directory ]]; then
+        >&2 echo "The eosio header directory is not defined!"
+		exit 1
+	fi
+
+	if [[ -z $base_directory ]]; then
+        >&2 echo "The base directory is not defined!"
+		exit 1
+	fi
+
+    if [[ -z $source_directory ]]; then
+        >&2 echo "The source directory  is not defined!"
+		exit 1
+	fi
+
+    if [[ -z $version ]]; then
+        >&2 echo "The version is not defined!"
+		exit 1
+	fi
 }
 
 load_variables() {
@@ -48,8 +73,8 @@ compile() {
     echo "=========================================================================================="
     echo "Compiling to WAST"
     echo "------------------------------------------------------------------------------------------"
-    mkdir -p $build_directory/$contract_name
     load_variables
+    mkdir -p $build_directory/$contract_name
 	eosiocpp -o $build_directory/$contract_name/$contract_name.wast $c_files $cpp_files
     compile_success=$?
     echo "=========================================================================================="
@@ -59,8 +84,8 @@ generate_abi() {
     echo "=========================================================================================="
     echo "Generating ABI"
     echo "------------------------------------------------------------------------------------------"
-    mkdir -p $build_directory/$contract_name
     load_variables
+    mkdir -p $build_directory/$contract_name
 	eosiocpp -g $build_directory/$contract_name/$contract_name.abi $c_files $cpp_files $h_files $hpp_files
     generate_abi_success=$?
     echo "=========================================================================================="
@@ -77,7 +102,8 @@ generate_pass_fail_string() {
 }
 
 build() {
-    rm -r $build_directory 2> /dev/null
+    load_variables
+	rm -r $build_directory 2> /dev/null
     mkdir -p $build_directory
     compile
     generate_abi
@@ -176,18 +202,14 @@ version='$VERSION > $contract_name/.geos
 if [[ $1 = "help" ]] || [[ $1 = "h" ]]; then
     usage
 elif [[ $1 = "build" ]] || [[ $1 = "b" ]]; then
-    load_project_file
 	build
 elif [[ $1 = "compile" ]] || [[ $1 = "c" ]]; then
-    load_project_file
     compile
 elif [[ $1 = "abi" ]] || [[ $1 = "a" ]]; then
-    load_project_file
     generate_abi
 elif [[ $1 = "create" ]] || [[ $1 = "n" ]]; then
     create $2
 else
-    load_project_file
 	build
 fi
 
