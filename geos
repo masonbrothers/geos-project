@@ -120,11 +120,8 @@ build() {
     echo "=========================================================================================="
 
     # Copy src and meta to deploy
-    cd $base_directory
     rm -r $meta_directory 2> /dev/null
-    mkdir -p $meta_directory
-
-    cp -r src/* $meta_directory
+    cp -r src $meta_directory
 
     C_MAKE_LISTS_FILE='file(GLOB ABI_FILES "*.abi")
 configure_file("${ABI_FILES}" "${CMAKE_CURRENT_BINARY_DIR}" COPYONLY)
