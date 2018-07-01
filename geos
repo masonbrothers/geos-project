@@ -60,6 +60,8 @@ glob_files() {
     hpp_files=`find $source_directory -name \*.hpp`
     c_files=`find $source_directory -name \*.c`
     h_files=`find $source_directory -name \*.h`
+
+    source_files="$cpp_files $hpp_files $c_files $h_files"
 }
 
 glob_files_if_not_done() {
@@ -140,9 +142,10 @@ set(CMAKE_CXX_STANDARD 14)
 
 include_directories('$eosio_header_directory')
 
-add_executable(messaging src/'$contract_name'.cpp)'
+add_executable(messaging '$sourcefiles')' > CMakeLists.txt
 
     echo $C_MAKE_LISTS_FILE > $meta_directory/CMakeLists.txt
+	echo $IDE_C_MAKE_LISTS_FILE > CMakeLists.txt
 }
 
 usage() {
