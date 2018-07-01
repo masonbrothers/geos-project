@@ -32,7 +32,7 @@ load_project_file() {
 	fi
 
     if [[ -z $source_directory ]]; then
-        >&2 echo "The source directory  is not defined!"
+        >&2 echo "The source directory is not defined!"
 		exit 1
 	fi
 
