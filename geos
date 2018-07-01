@@ -45,8 +45,8 @@ load_project_file() {
 load_variables() {
     load_project_file
     glob_files_if_not_done
-	build_directory=$base_directory/build
-    meta_directory=$base_directory/.project
+	build_directory=$current_directory/build
+    meta_directory=$current_directory/.project
 }
 
 # Go to the source directory before getting all the files.
