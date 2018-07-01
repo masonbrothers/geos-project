@@ -1,5 +1,6 @@
 # geos
 
+## What is geos?
 `geos` is a command line generator for eos contracts. Written entirely in bash, `geos` allows for one to create and build eos smart contracts.
 
 ## How to use
