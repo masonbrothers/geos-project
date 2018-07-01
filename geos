@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+
+VERSION=1
+
+current_directory=`pwd`
+script_directory=`dirname $0`
+
+script_name=`basename $0`
+
+load_project_file() {
+    # Check to see if .geos file exists. If it does not, exit.
+    source .geos 2> /dev/null
+    if [[ $? -ne 0 ]]; then
+        >&2 echo "This directory does not have a project. To create a directory with a project, run \"$script_name create <project-name>\""
+        >&2 echo "For help run \"$script_name help\""
+		exit 1
+    fi
+}
+
+load_variables() {
+    load_project_file
+    glob_files_if_not_done
+	build_directory=$base_directory/build
+    meta_directory=$base_directory/.project
+}
+
+# Go to the source directory before getting all the files.
+glob_files() {
+    if [[ ! -d $source_directory ]]; then
+        >&2 echo "The source directory cannot be found! Please create a folder named \"src/\" and put your C/C++ files in it."
+        exit 1
+    fi
+
+    cpp_files=`find $source_directory -name \*.cpp`
+    hpp_files=`find $source_directory -name \*.hpp`
+    c_files=`find $source_directory -name \*.c`
+    h_files=`find $source_directory -name \*.h`
+}
+
+glob_files_if_not_done() {
+    if [[ globbed_files -ne 1 ]]; then
+        glob_files
+        globbed_files=1
+    fi
+}
+
+compile() {
+    echo "=========================================================================================="
+    echo "Compiling to WAST"
+    echo "------------------------------------------------------------------------------------------"
+    mkdir -p $build_directory/$contract_name
+    load_variables
+	eosiocpp -o $build_directory/$contract_name/$contract_name.wast $c_files $cpp_files
+    compile_success=$?
+    echo "=========================================================================================="
+}
+
+generate_abi() {
+    echo "=========================================================================================="
+    echo "Generating ABI"
+    echo "------------------------------------------------------------------------------------------"
+    mkdir -p $build_directory/$contract_name
+    load_variables
+	eosiocpp -g $build_directory/$contract_name/$contract_name.abi $c_files $cpp_files $h_files $hpp_files
+    generate_abi_success=$?
+    echo "=========================================================================================="
+}
+
+generate_pass_fail_string() {
+    if [[ $1 -eq 0 ]]; then
+        pass_fail_string="Pass"
+    elif [[ $1 -eq 1 ]]; then
+        pass_fail_string="Fail"
+    else
+        pass_fail_string="Not Completed"
+    fi
+}
+
+build() {
+    rm -r $build_directory 2> /dev/null
+    mkdir -p $build_directory
+    compile
+    generate_abi
+
+    echo "=========================================================================================="
+    echo "Summary"
+    echo "------------------------------------------------------------------------------------------"
+    generate_pass_fail_string $compile_success
+    echo "Compile: $pass_fail_string"
+    generate_pass_fail_string $generate_abi_success
+    echo "Generate ABI: $pass_fail_string"
+    echo "=========================================================================================="
+
+    # Copy src and meta to deploy
+    cd $base_directory
+    rm -r $meta_directory 2> /dev/null
+    mkdir -p $meta_directory
+
+    cp -r src/* $meta_directory
+
+    C_MAKE_LISTS_FILE='file(GLOB ABI_FILES "*.abi")
+configure_file("${ABI_FILES}" "${CMAKE_CURRENT_BINARY_DIR}" COPYONLY)
+
+add_wast_executable(TARGET '$contract_name'
+  INCLUDE_FOLDERS "${STANDARD_INCLUDE_FOLDERS}"
+  LIBRARIES libc++ libc eosiolib
+  DESTINATION_FOLDER ${CMAKE_CURRENT_BINARY_DIR}
+)'
+
+    IDE_C_MAKE_LISTS_FILE='cmake_minimum_required(VERSION 3.9)
+project('$contract_name')
+
+set(CMAKE_CXX_STANDARD 14)
+
+include_directories('$eosio_header_directory')
+
+add_executable(messaging src/'$contract_name'.cpp)'
+
+    echo $C_MAKE_LISTS_FILE > $meta_directory/CMakeLists.txt
+}
+
+usage() {
+    echo -e "usage: $script_name [ create n | help h | build b | compile c | abi a ]"
+}
+
+create() {
+    contract_name=$1
+    # echo $contract_name | grep -P -q "[^[a-zA-Z]+$]"
+    if [[ "$contract_name" =~ [^a-z] ]]; then
+        echo "The contract name \"$contract_name\" is not valid. Please use only lower case letters when creating a contract."
+        exit 1
+    fi
+
+    mkdir $contract_name 2> /dev/null
+    if [[ $? -ne 0 ]]; then
+        if [[ -e $contract_name ]]; then
+            >&2 echo "There is already a file or folder called \"$contract_name\" in this directory!"
+            exit 1
+        fi
+        >&2 echo "We could not create a folder named \"$contract_name\""
+        exit 1
+    fi
+
+    mkdir $contract_name/src
+    echo '#include <eosiolib/eosio.hpp>
+using namespace eosio;
+
+class '$contract_name' : public eosio::contract {
+  public:
+      using contract::contract;
+
+      /// @abi action
+      void hi( account_name user ) {
+         print( "Hello, ", name{user} );
+      }
+};
+
+EOSIO_ABI( '$contract_name', (hi) )
+' > $contract_name/src/$contract_name.cpp
+
+    echo '#!/usr/bin/env bash
+
+contract_name="'$contract_name'"
+eosio_header_directory="/usr/local/include/"
+
+base_directory=`dirname "$0"`
+source_directory="src/"
+version='$VERSION > $contract_name/.geos
+
+    cp $script_directory/$script_name $contract_name/$script_name
+
+    exit 0
+}
+
+# Print usage statement
+if [[ $1 = "help" ]] || [[ $1 = "h" ]]; then
+    usage
+elif [[ $1 = "build" ]] || [[ $1 = "b" ]]; then
+    load_project_file
+	build
+elif [[ $1 = "compile" ]] || [[ $1 = "c" ]]; then
+    load_project_file
+    compile
+elif [[ $1 = "abi" ]] || [[ $1 = "a" ]]; then
+    load_project_file
+    generate_abi
+elif [[ $1 = "create" ]] || [[ $1 = "n" ]]; then
+    create $2
+else
+    load_project_file
+	build
+fi
+
