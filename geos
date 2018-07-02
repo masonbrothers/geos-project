@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=1
+VERSION=2
 
 current_directory=`pwd`
 script_directory=`dirname $0`
@@ -32,7 +32,7 @@ load_project_file() {
 	fi
 
     if [[ -z $source_directory ]]; then
-        >&2 echo "The source directory  is not defined!"
+        >&2 echo "The source directory is not defined!"
 		exit 1
 	fi
 
@@ -45,14 +45,14 @@ load_project_file() {
 load_variables() {
     load_project_file
     glob_files_if_not_done
-	build_directory=$base_directory/build
-    meta_directory=$base_directory/.project
+	build_directory=$current_directory/build
+    meta_directory=$current_directory/.project
 }
 
 # Go to the source directory before getting all the files.
 glob_files() {
     if [[ ! -d $source_directory ]]; then
-        >&2 echo "The source directory cannot be found! Please create a folder named \"src/\" and put your C/C++ files in it."
+        >&2 echo "The source directory cannot be found! Please create a folder named \"src\" and put your C/C++ files in it."
         exit 1
     fi
 
@@ -60,6 +60,8 @@ glob_files() {
     hpp_files=`find $source_directory -name \*.hpp`
     c_files=`find $source_directory -name \*.c`
     h_files=`find $source_directory -name \*.h`
+
+    source_files="$cpp_files $hpp_files $c_files $h_files"
 }
 
 glob_files_if_not_done() {
@@ -118,31 +120,15 @@ build() {
     echo "=========================================================================================="
 
     # Copy src and meta to deploy
-    cd $base_directory
     rm -r $meta_directory 2> /dev/null
-    mkdir -p $meta_directory
+    cp -r src $meta_directory
 
-    cp -r src/* $meta_directory
+    C_MAKE_LISTS_FILE='file(GLOB ABI_FILES "*.abi")\nconfigure_file("${ABI_FILES}" "${CMAKE_CURRENT_BINARY_DIR}" COPYONLY)\n\nadd_wast_executable(TARGET '$contract_name'\n  INCLUDE_FOLDERS "${STANDARD_INCLUDE_FOLDERS}"\n  LIBRARIES libc++ libc eosiolib\n  DESTINATION_FOLDER ${CMAKE_CURRENT_BINARY_DIR}\n)'
 
-    C_MAKE_LISTS_FILE='file(GLOB ABI_FILES "*.abi")
-configure_file("${ABI_FILES}" "${CMAKE_CURRENT_BINARY_DIR}" COPYONLY)
+    IDE_C_MAKE_LISTS_FILE='cmake_minimum_required(VERSION 3.9)\n\nproject('$contract_name')\n\nset(CMAKE_CXX_STANDARD 14)\n\ninclude_directories('$eosio_header_directory')\n\nadd_executable(messaging '$source_files')' > CMakeLists.txt
 
-add_wast_executable(TARGET '$contract_name'
-  INCLUDE_FOLDERS "${STANDARD_INCLUDE_FOLDERS}"
-  LIBRARIES libc++ libc eosiolib
-  DESTINATION_FOLDER ${CMAKE_CURRENT_BINARY_DIR}
-)'
-
-    IDE_C_MAKE_LISTS_FILE='cmake_minimum_required(VERSION 3.9)
-project('$contract_name')
-
-set(CMAKE_CXX_STANDARD 14)
-
-include_directories('$eosio_header_directory')
-
-add_executable(messaging src/'$contract_name'.cpp)'
-
-    echo $C_MAKE_LISTS_FILE > $meta_directory/CMakeLists.txt
+    echo -e $C_MAKE_LISTS_FILE > $meta_directory/CMakeLists.txt
+	echo -e $IDE_C_MAKE_LISTS_FILE > CMakeLists.txt
 }
 
 usage() {
@@ -190,7 +176,7 @@ contract_name="'$contract_name'"
 eosio_header_directory="/usr/local/include/"
 
 base_directory=`dirname "$0"`
-source_directory="src/"
+source_directory="src"
 version='$VERSION > $contract_name/.geos
 
     cp $script_directory/$script_name $contract_name/$script_name
